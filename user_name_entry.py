@@ -31,7 +31,6 @@ class userNameEntryFrame(tkinter.Frame):
         if your_name == "":
             self.your_name_error_submit = messagebox.showerror("Error: No name given", "Please enter your name.")
         else:
-            self.pack_forget()
             self.destroy()
             emer_contact_menu_frame = emerContactListFrame(your_name, self.parent)
 

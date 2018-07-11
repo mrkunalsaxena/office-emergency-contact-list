@@ -1,6 +1,7 @@
 import tkinter # standard GUI library for Python
-from tkinter import filedialog
 from tkinter import messagebox
+import re
+import sqlite3
 
 # Class for viewing and modifying the emergency contact list
 # Used after the current user has entered their name
@@ -10,22 +11,14 @@ class emerContactListFrame(tkinter.Frame):
         self.parent = parent
         self.config(bd = 5)
         self.your_name = your_name
+        self.conn = sqlite3.connect("emergency_contacts.db")
+        self.c = self.conn.cursor()
+        self.users = []
         self.grid()
         self.make_widgets()
+        
 
     def make_widgets(self):
-
-        # Adding a menu bar
-        self.menubar = tkinter.Menu(self.winfo_toplevel())
-
-        self.filemenu = tkinter.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label = "File", menu= self.filemenu)
-        self.filemenu.add_command(label = "New", command = self.fileNewCallback)
-        self.filemenu.add_command(label = "Open", command = self.fileOpenCallback)
-        self.filemenu.add_separator()
-        self.filemenu.add_command(label = "Exit", command = self.winfo_toplevel().quit)
-
-        self.winfo_toplevel().config(menu = self.menubar)
 
         # Welcome message for the current user
         self.welcome_label = tkinter.Label(self, text = "Welcome " + self.your_name + "\n")
@@ -38,10 +31,10 @@ class emerContactListFrame(tkinter.Frame):
         self.user_name_add_label = tkinter.Label(self, text = "User's Name:")
         self.user_name_add_label.grid(row = 2, column = 0, sticky = "W")
 
-        self.user_name_add_entry = tkinter.Entry(self, bd = 5, state = tkinter.DISABLED)
+        self.user_name_add_entry = tkinter.Entry(self, bd = 5)
         self.user_name_add_entry.grid(row = 2, column = 1, sticky = "W")
 
-        self.user_name_add_submit_button = tkinter.Button(self, text = "Submit", state = tkinter.DISABLED, command = self.userNameAddSubmitCallback)
+        self.user_name_add_submit_button = tkinter.Button(self, text = "Submit", command = self.userNameAddSubmitCallback)
         self.user_name_add_submit_button.grid(row = 2, column = 2, padx = 5, sticky = "W")
 
         # Area for selecting a user and viewing their info
@@ -51,40 +44,26 @@ class emerContactListFrame(tkinter.Frame):
         self.user_name_select_label = tkinter.Label(self, text = "User's Name:")
         self.user_name_select_label.grid(row = 2, column = 4, sticky = "W")
 
-        self.user_name_select_listbox = tkinter.Listbox(self, bd = 5, state = tkinter.DISABLED)
+        self.user_name_select_listbox = tkinter.Listbox(self, bd = 5)
         self.user_name_select_listbox.grid(row = 2, column = 5, sticky = "W")
+        
+        # Gets employees that already exist in database
+        self.c.execute("SELECT employee_name FROM emergency_contacts")
+        self.users = self.c.fetchall()
+        for user in self.users:
+            user = "".join(user)
+            self.user_name_select_listbox.insert(tkinter.END, user)
 
-        self.user_name_select_submit_button = tkinter.Button(self, text = "Submit", state = tkinter.DISABLED)
+        self.user_name_select_submit_button = tkinter.Button(self, text = "Submit", command = self.userNameSelectSubmitCallback)
         self.user_name_select_submit_button.grid(row = 2, column = 6, padx = 5, sticky = "W")
 
-    def fileNewCallback(self):
-        self.csv_header = "Modified by,Employee name,Employee phone,Emergency contact name,Emergency contact phone\n"
-
-        self.f = open("office_emergency_contact_list.csv", "w+")
-        self.f.write(self.csv_header)
-        self.f.close()
-
-        self.user_name_add_entry.config(state = tkinter.NORMAL)
-        self.user_name_add_submit_button.config(state = tkinter.NORMAL)
-
-    def fileOpenCallback(self):
-        ftypes = [('.csv files', '*.csv')]
-        self.file_open_dialog = filedialog.Open(self, filetypes = ftypes)
-        self.file_name_open = self.file_open_dialog.show()
-
-        if self.file_name_open != "":
-            print(self.file_name_open)
-        
-        self.user_name_add_entry.config(state = tkinter.NORMAL)
-        self.user_name_add_submit_button.config(state = tkinter.NORMAL)
-        self.user_name_select_listbox.config(state = tkinter.NORMAL)
-        self.user_name_select_submit_button.config(state = tkinter.NORMAL)
-
     def userNameAddSubmitCallback(self):
+        # Makes sure that a name has been entered
         self.user_name_add = self.user_name_add_entry.get().strip()
         if self.user_name_add == "":
             self.user_name_add_error_submit = messagebox.showerror("Error: No name given", "Please enter the person's name.")
         else:
+            # Displays entry boxes for the rest of the needed information
             self.user_name_add_submit_button.config(state = tkinter.DISABLED)
             self.user_phone_add_label = tkinter.Label(self, text = "User's Phone #:")
             self.user_phone_add_label.grid(row = 3, column = 0, sticky = "W")
@@ -108,6 +87,7 @@ class emerContactListFrame(tkinter.Frame):
             self.user_info_add_submit_button.grid(row = 6, column = 1, sticky = "E")
 
     def userInfoAddSubmitCallback(self):
+        # Make sure that all fields have an input
         if self.user_name_add_entry.get().strip() == "":
             self.user_name_add_error_submit = messagebox.showerror("Error: No name given", "Please enter the person's name.")
         elif self.user_phone_add_entry.get().strip() == "":
@@ -117,10 +97,32 @@ class emerContactListFrame(tkinter.Frame):
         elif self.user_emer_phone_add_entry.get().strip() == "":
             self.user_emer_phone_add_error_submit = messagebox.showerror("Error: No emergency phone number given", "Please enter the emergency contact's phone number.")
         else:
-            self.user_info_add_success_submit = messagebox.showinfo("Success", self.user_name_add_entry.get().strip() + "'s emergency contact info was successfully saved.")
-            self.new_user_info = self.your_name + "," + self.user_name_add_entry.get().strip() + "," + self.user_phone_add_entry.get().strip() + "," + self.user_emer_name_add_entry.get().strip() + "," + self.user_emer_phone_add_entry.get().strip() + "\n"
-            
-            self.f = open("office_emergency_contact_list.csv", "a")
-            self.f.write(self.new_user_info)
-            self.f.close()
-                                 
+            # Writes the user emergency contact info to the database
+            self.c.execute("INSERT INTO emergency_contacts VALUES(?, ?, ?, ?)", (self.user_name_add_entry.get().strip(), self.user_phone_add_entry.get().strip(), self.user_emer_name_add_entry.get().strip(), self.user_emer_phone_add_entry.get().strip()))
+            self.conn.commit()
+            self.user_info_success_submit = messagebox.showinfo("Success", self.user_name_add_entry.get().strip() + "'s emergency contact information was saved.")
+
+            # Rest of needed information is not needed anymore
+            self.user_phone_add_label.destroy()
+            self.user_phone_add_entry.destroy()
+            self.user_emer_name_add_label.destroy()
+            self.user_emer_name_add_entry.destroy()
+            self.user_emer_phone_add_label.destroy()
+            self.user_emer_phone_add_entry.destroy()
+            self.user_info_add_submit_button.destroy()
+
+            # Adds newly added user to the user selection listbox
+            self.user_name_select_listbox.insert(tkinter.END, self.user_name_add_entry.get().strip())
+
+            # Re-enables add new user submit button for adding new users
+            self.user_name_add_submit_button.config(state = tkinter.NORMAL)
+
+    def userNameSelectSubmitCallback(self):
+        # Gets the user's selection from the listbox
+        self.user_selection = self.user_name_select_listbox.get(self.user_name_select_listbox.curselection()[0])
+        
+        # Forms the key to retrieve the corresponding emergency information
+        (key1, key2) = re.split(": ", self.user_selection)
+
+
+        
