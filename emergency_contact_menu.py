@@ -50,12 +50,16 @@ class emerContactListFrame(tkinter.Frame):
             user = ", ".join(user)
             self.user_name_select_listbox.insert(tkinter.END, user)
 
-        # Resizes listbox to fit contents
+        # Resizes listbox to fit contents and defaults to first selection in list
         self.user_name_select_listbox.config(width = 0)
         self.winfo_toplevel().wm_geometry("")
+        self.user_name_select_listbox.select_set(0)
 
-        self.user_name_select_submit_button = tkinter.Button(self, text = "Submit", command = self.userNameSelectSubmitCallback)
+        self.user_name_select_submit_button = tkinter.Button(self, text = "Select", command = self.userNameSelectSubmitCallback)
         self.user_name_select_submit_button.grid(row = 2, column = 6, padx = 5, sticky = "W")
+
+        self.user_name_delete_submit_button = tkinter.Button(self, text = "Delete", command = self.userInfoDeleteSubmitCallback)
+        self.user_name_delete_submit_button.grid(row = 2, column = 7, padx = 5, sticky = "W")
 
     def userNameAddSubmitCallback(self):
         # Makes sure that a name has been entered
@@ -65,6 +69,9 @@ class emerContactListFrame(tkinter.Frame):
         else:
             # Displays entry boxes for the rest of the needed information
             self.user_name_add_submit_button.config(state = tkinter.DISABLED)
+            self.user_name_select_submit_button.config(state = tkinter.DISABLED)
+            self.user_name_delete_submit_button.config(state = tkinter.DISABLED)
+
             self.user_phone_add_label = tkinter.Label(self, text = "User's Phone #:")
             self.user_phone_add_label.grid(row = 3, column = 0, sticky = "W")
 
@@ -114,8 +121,10 @@ class emerContactListFrame(tkinter.Frame):
             self.user_emer_phone_add_entry.destroy()
             self.user_info_add_submit_button.destroy()
 
-            # Re-enables add new user submit button for adding new users
+            # Re-enables add new user submit button, select user submit button, delete user submit button
             self.user_name_add_submit_button.config(state = tkinter.NORMAL)
+            self.user_name_select_submit_button.config(state = tkinter.NORMAL)
+            self.user_name_delete_submit_button.config(state = tkinter.NORMAL)
 
     def userNameSelectSubmitCallback(self):
         # Gets the user's selection from the listbox
@@ -128,7 +137,10 @@ class emerContactListFrame(tkinter.Frame):
         self.emp_data = self.c.fetchone()
 
         # Displays entry boxes with prefilled info depending on which user was selected
+        self.user_name_add_entry.config(state = tkinter.DISABLED)
+        self.user_name_add_submit_button.config(state = tkinter.DISABLED)
         self.user_name_select_submit_button.config(state = tkinter.DISABLED)
+        self.user_name_delete_submit_button.config(state = tkinter.DISABLED)
         self.info_modify_label = tkinter.Label(self, text = "Modify emergency contact info:")
         self.info_modify_label.grid(row = 3, column = 4, sticky = "W")
 
@@ -205,5 +217,24 @@ class emerContactListFrame(tkinter.Frame):
             self.user_emer_phone_modify_entry.destroy()
             self.user_info_modify_submit_button.destroy()
 
-            # Re-enables select user submit button for viewing/modifying users
+            # Re-enables recently disabled functionality
+            self.user_name_add_entry.config(state = tkinter.NORMAL)
+            self.user_name_add_submit_button.config(state = tkinter.NORMAL)
             self.user_name_select_submit_button.config(state = tkinter.NORMAL)
+            self.user_name_delete_submit_button.config(state = tkinter.NORMAL)
+
+    def userInfoDeleteSubmitCallback(self):
+        # Gets the user's selection from the listbox
+        self.user_selection = self.user_name_select_listbox.get(self.user_name_select_listbox.curselection()[0])
+        self.user_selection_index = self.user_name_select_listbox.curselection()[0]
+
+        self.emp_name_and_phone = tuple(re.split(", ", self.user_selection))
+
+        # Deletes the selected user entry from the database
+        self.c.execute("DELETE FROM emergency_contacts WHERE employee_name=? AND employee_phone=?", self.emp_name_and_phone)
+        self.conn.commit()
+
+        # Removes deleted entry from user selection listbox
+        self.user_name_select_listbox.delete(self.user_selection_index)
+
+        self.user_info_delete_success_submit = messagebox.showinfo("Success", self.emp_name_and_phone[0] + "'s emergency contact information was deleted.")
