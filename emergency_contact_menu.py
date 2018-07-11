@@ -6,11 +6,10 @@ import sqlite3
 # Class for viewing and modifying the emergency contact list
 # Used after the current user has entered their name
 class emerContactListFrame(tkinter.Frame):
-    def __init__(self, your_name, parent = None):
+    def __init__(self, parent = None):
         tkinter.Frame.__init__(self, parent)
         self.parent = parent
         self.config(bd = 5)
-        self.your_name = your_name
         self.conn = sqlite3.connect("emergency_contacts.db")
         self.c = self.conn.cursor()
         self.users = []
@@ -21,7 +20,7 @@ class emerContactListFrame(tkinter.Frame):
     def make_widgets(self):
 
         # Welcome message for the current user
-        self.welcome_label = tkinter.Label(self, text = "Welcome " + self.your_name + "\n")
+        self.welcome_label = tkinter.Label(self, text = "Welcome" + "\n")
         self.welcome_label.grid(row = 0, column = 0, sticky = "W")
 
         # Area for creating a new user and adding their info
@@ -38,21 +37,22 @@ class emerContactListFrame(tkinter.Frame):
         self.user_name_add_submit_button.grid(row = 2, column = 2, padx = 5, sticky = "W")
 
         # Area for selecting a user and viewing their info
-        self.select_user_label = tkinter.Label(self, text = "Select a user:")
+        self.select_user_label = tkinter.Label(self, text = "Select/Modify a user:")
         self.select_user_label.grid(row = 1, column = 4, sticky = "W")
-
-        self.user_name_select_label = tkinter.Label(self, text = "User's Name:")
-        self.user_name_select_label.grid(row = 2, column = 4, sticky = "W")
 
         self.user_name_select_listbox = tkinter.Listbox(self, bd = 5)
         self.user_name_select_listbox.grid(row = 2, column = 5, sticky = "W")
         
         # Gets employees that already exist in database
-        self.c.execute("SELECT employee_name FROM emergency_contacts")
+        self.c.execute("SELECT employee_name, employee_phone FROM emergency_contacts ORDER BY employee_name")
         self.users = self.c.fetchall()
         for user in self.users:
-            user = "".join(user)
+            user = ", ".join(user)
             self.user_name_select_listbox.insert(tkinter.END, user)
+
+        # Resizes listbox to fit contents
+        self.user_name_select_listbox.config(width = 0)
+        self.winfo_toplevel().wm_geometry("")
 
         self.user_name_select_submit_button = tkinter.Button(self, text = "Submit", command = self.userNameSelectSubmitCallback)
         self.user_name_select_submit_button.grid(row = 2, column = 6, padx = 5, sticky = "W")
@@ -120,9 +120,56 @@ class emerContactListFrame(tkinter.Frame):
     def userNameSelectSubmitCallback(self):
         # Gets the user's selection from the listbox
         self.user_selection = self.user_name_select_listbox.get(self.user_name_select_listbox.curselection()[0])
-        
-        # Forms the key to retrieve the corresponding emergency information
-        (key1, key2) = re.split(": ", self.user_selection)
 
+        self.emp_name_and_phone = tuple(re.split(", ", self.user_selection))
 
+        self.c.execute("SELECT * FROM emergency_contacts WHERE employee_name=? AND employee_phone=?", self.emp_name_and_phone)
+        self.emp_data = self.c.fetchone()
+
+        # Displays entry boxes with prefilled info depending on which user was selected
+        self.info_modify_label = tkinter.Label(self, text = "Modify emergency contact info:")
+        self.info_modify_label.grid(row = 3, column = 4, sticky = "W")
+
+        self.user_name_modify_label = tkinter.Label(self, text = "User's Name:")
+        self.user_name_modify_label.grid(row = 4, column = 4, sticky = "W")
+
+        self.user_name_modify_entry = tkinter.Entry(self, bd = 5)
+        self.user_name_modify_entry.grid(row = 4, column = 5, sticky = "W")
+        self.user_name_modify_entry.insert(0, self.emp_data[0])
+
+        self.user_phone_modify_label = tkinter.Label(self, text = "User's Phone #:")
+        self.user_phone_modify_label.grid(row = 5, column = 4, sticky = "W")
+
+        self.user_phone_modify_entry = tkinter.Entry(self, bd = 5)
+        self.user_phone_modify_entry.grid(row = 5, column = 5, sticky = "W")
+        self.user_phone_modify_entry.insert(0, self.emp_data[1])
+
+        self.user_emer_name_modify_label = tkinter.Label(self, text = "Emergency Contact Name:")
+        self.user_emer_name_modify_label.grid(row = 6, column = 4, sticky = "W")
+
+        self.user_emer_name_modify_entry = tkinter.Entry(self, bd = 5)
+        self.user_emer_name_modify_entry.grid(row = 6, column = 5, sticky = "W")
+        self.user_emer_name_modify_entry.insert(0, self.emp_data[2])
+
+        self.user_emer_phone_modify_label = tkinter.Label(self, text = "Emergency Contact Phone #:")
+        self.user_emer_phone_modify_label.grid(row = 7, column = 4, sticky = "W")
+
+        self.user_emer_phone_modify_entry = tkinter.Entry(self, bd = 5)
+        self.user_emer_phone_modify_entry.grid(row = 7, column = 5, sticky = "W")
+        self.user_emer_phone_modify_entry.insert(0, self.emp_data[3])
+
+        self.user_info_modify_submit_button = tkinter.Button(self, text = "Submit", command = self.userInfoModifySubmitCallback)
+        self.user_info_modify_submit_button.grid(row = 8, column = 5, sticky = "E")
         
+    def userInfoModifySubmitCallback(self):
+        # Make sure that all fields have an input
+        if self.user_name_modify_entry.get().strip() == "":
+            self.user_name_modify_error_submit = messagebox.showerror("Error: No name given", "Please enter the person's name.")
+        elif self.user_phone_modify_entry.get().strip() == "":
+            self.user_phone_modify_error_submit = messagebox.showerror("Error: No user phone given", "Please enter the person's phone number.")
+        elif self.user_emer_name_modify_entry.get().strip() == "":
+            self.user_emer_name_modify_error_submit = messagebox.showerror("Error: No emergency name given", "Please enter the emergency contact's name.")
+        elif self.user_emer_phone_modify_entry.get().strip() == "":
+            self.user_emer_phone_modify_error_submit = messagebox.showerror("Error: No emergency phone number given", "Please enter the emergency contact's phone number.")
+        else:
+            pass
