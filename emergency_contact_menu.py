@@ -100,7 +100,10 @@ class emerContactListFrame(tkinter.Frame):
             # Writes the user emergency contact info to the database
             self.c.execute("INSERT INTO emergency_contacts VALUES(?, ?, ?, ?)", (self.user_name_add_entry.get().strip(), self.user_phone_add_entry.get().strip(), self.user_emer_name_add_entry.get().strip(), self.user_emer_phone_add_entry.get().strip()))
             self.conn.commit()
-            self.user_info_success_submit = messagebox.showinfo("Success", self.user_name_add_entry.get().strip() + "'s emergency contact information was saved.")
+            self.user_info_add_success_submit = messagebox.showinfo("Success", self.user_name_add_entry.get().strip() + "'s emergency contact information was saved.")
+
+            # Adds newly added user to the user selection listbox
+            self.user_name_select_listbox.insert(tkinter.END, self.user_name_add_entry.get().strip() + ", " + self.user_phone_add_entry.get().strip())
 
             # Rest of needed information is not needed anymore
             self.user_phone_add_label.destroy()
@@ -111,15 +114,13 @@ class emerContactListFrame(tkinter.Frame):
             self.user_emer_phone_add_entry.destroy()
             self.user_info_add_submit_button.destroy()
 
-            # Adds newly added user to the user selection listbox
-            self.user_name_select_listbox.insert(tkinter.END, self.user_name_add_entry.get().strip())
-
             # Re-enables add new user submit button for adding new users
             self.user_name_add_submit_button.config(state = tkinter.NORMAL)
 
     def userNameSelectSubmitCallback(self):
         # Gets the user's selection from the listbox
         self.user_selection = self.user_name_select_listbox.get(self.user_name_select_listbox.curselection()[0])
+        self.user_selection_index = self.user_name_select_listbox.curselection()[0]
 
         self.emp_name_and_phone = tuple(re.split(", ", self.user_selection))
 
@@ -127,6 +128,7 @@ class emerContactListFrame(tkinter.Frame):
         self.emp_data = self.c.fetchone()
 
         # Displays entry boxes with prefilled info depending on which user was selected
+        self.user_name_select_submit_button.config(state = tkinter.DISABLED)
         self.info_modify_label = tkinter.Label(self, text = "Modify emergency contact info:")
         self.info_modify_label.grid(row = 3, column = 4, sticky = "W")
 
@@ -172,4 +174,36 @@ class emerContactListFrame(tkinter.Frame):
         elif self.user_emer_phone_modify_entry.get().strip() == "":
             self.user_emer_phone_modify_error_submit = messagebox.showerror("Error: No emergency phone number given", "Please enter the emergency contact's phone number.")
         else:
-            pass
+            # Checking if the user name and phone are the same as before (same person, therefore update entry)
+            if self.emp_data[0] == self.user_name_modify_entry.get().strip() and self.emp_data[1] == self.user_phone_modify_entry.get().strip():
+                self.c.execute("UPDATE emergency_contacts SET emergency_name=?, emergency_phone=? WHERE employee_name=? AND employee_phone=?", (self.user_emer_name_modify_entry.get().strip(), self.user_emer_phone_modify_entry.get().strip(), self.user_name_modify_entry.get().strip(), self.user_phone_modify_entry.get().strip()))
+                self.conn.commit()
+            # Modified to another person (different person, therefore remove old entry and insert new one)
+            else:
+                self.c.execute("DELETE FROM emergency_contacts WHERE employee_name=? AND employee_phone=?", self.emp_name_and_phone)
+                self.conn.commit()
+                self.c.execute("INSERT INTO emergency_contacts VALUES(?, ?, ?, ?)", (self.user_name_modify_entry.get().strip(), self.user_phone_modify_entry.get().strip(), self.user_emer_name_modify_entry.get().strip(), self.user_emer_phone_modify_entry.get().strip()))
+                self.conn.commit()
+
+                # Removes old entry from user selection listbox
+                self.user_name_select_listbox.delete(self.user_selection_index)
+
+                # Adds modified user to the user selection listbox
+                self.user_name_select_listbox.insert(tkinter.END, self.user_name_modify_entry.get().strip() + ", " + self.user_phone_modify_entry.get().strip())
+
+            self.user_info_modify_success_submit = messagebox.showinfo("Success", self.user_name_modify_entry.get().strip() + "'s emergency contact information was saved.")
+
+            # Rest of needed information is not needed anymore
+            self.info_modify_label.destroy()
+            self.user_name_modify_label.destroy()
+            self.user_name_modify_entry.destroy()
+            self.user_phone_modify_label.destroy()
+            self.user_phone_modify_entry.destroy()
+            self.user_emer_name_modify_label.destroy()
+            self.user_emer_name_modify_entry.destroy()
+            self.user_emer_phone_modify_label.destroy()
+            self.user_emer_phone_modify_entry.destroy()
+            self.user_info_modify_submit_button.destroy()
+
+            # Re-enables select user submit button for viewing/modifying users
+            self.user_name_select_submit_button.config(state = tkinter.NORMAL)
